@@ -141,7 +141,7 @@ def make_video(params):
         for item in ballp:
             ofile.append(str(item))
     ofile = "_".join(ofile)
-    os.system('''gst-launch-1.0 webmmux name=mux ! filesink location="''' + ofile + '''.webm"    file:///`pwd`/damian_turnbull_idents_piano__damian_turnbull__preview.mp3.mp3 ! decodebin ! audioconvert ! vorbisenc ! mux.     multifilesrc location="seq/out-%03d.png" index=1 caps="image/png,framerate=\(fraction\)70/1" ! pngdec ! videoconvert ! videoscale ! videorate ! vp8enc threads=4 ! mux.''')
+    os.system('''gst-launch-1.0 webmmux name=mux ! filesink location="''' + ofile + '''.webm"    file:///`pwd`/damian_turnbull_idents_piano__damian_turnbull__preview.mp3 ! decodebin ! audioconvert ! vorbisenc ! mux.     multifilesrc location="seq/out-%03d.png" index=1 caps="image/png,framerate=\(fraction\)70/1" ! pngdec ! videoconvert ! videoscale ! videorate ! vp8enc threads=4 ! mux.''')
     os.system("rm seq/out-*.png")
     print "Made video", ofile
     print "Kill the program now..."
