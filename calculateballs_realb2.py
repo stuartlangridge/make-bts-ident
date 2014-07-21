@@ -155,10 +155,17 @@ def convert_point(x, y, step, steptotal, source_rect, destination_rect):
     new_y = y + (dy * float(step) / steptotal)
     return (new_x, new_y)
 
-sphere = Image.open("green-sphere.png")
-def draw_a_sphere(box, im, ballindex, frame):
+STAND_STILL_FRAMES = 60
+SPIN_FRAMES = 120
+
+def draw_a_sphere(box, im, ballindex, frame, opacity=1.0):
+    sphere = Image.open("green-sphere-%s.png" % (ballindex + 1,))
     tx, ty, bx, by = box
     sphsize = sphere.resize((int(bx-tx), int(by-ty)), Image.ANTIALIAS)
+    if opacity < 1.0:
+        transparent = Image.new(sphsize.mode, sphsize.size, (0,0,0,0))
+        sphsize = Image.blend(transparent, sphsize, opacity)
+
     im.paste(sphsize, box=(int(tx), int(ty)), mask=sphsize)
 
 def make_video(params):
@@ -171,7 +178,7 @@ def make_video(params):
     balls, endparams, data = simulate_world(make_png, params)
     positions = [(x.position.x, x.position.y) for x in balls]
     # create all the remaining frames
-    STAND_STILL_FRAMES = 60
+
     print "  still frames..."
     for i in range(STAND_STILL_FRAMES): # static frames
         im = Image.new("RGBA", OUTPUT_SIZE, color=(200, 200, 255))
@@ -187,9 +194,9 @@ def make_video(params):
             ballcount += 1
         del draw
         im.save("seq/out-%03d.png" % (int(data["framecount"]) + i), "PNG")
-    SPIN_FRAMES = 120
+
     print "  spin frames..."
-    zoom_down_to_fraction_of_total = 3
+    zoom_down_to_fraction_of_total = 2.5
     zoom_down_to_tl = (
         OUTPUT_SIZE[0] * ((zoom_down_to_fraction_of_total - 1.5) / zoom_down_to_fraction_of_total), 
         OUTPUT_SIZE[1] * ((zoom_down_to_fraction_of_total - 1.5) / zoom_down_to_fraction_of_total)
@@ -226,8 +233,9 @@ def make_video(params):
             ypos = starty
             while 1:
                 #draw.ellipse([xpos, ypos, xpos + circ_size, ypos + circ_size], fill=(200,200,200))
-                draw_a_sphere([xpos, ypos, xpos + circ_size, ypos + circ_size], im, 5, 
-                    data["framecount"] + STAND_STILL_FRAMES + i) # ballindex 5 for the "other" spheres
+                draw_a_sphere([xpos, ypos, xpos + circ_size, ypos + circ_size], im, 4, 
+                    data["framecount"] + STAND_STILL_FRAMES + i,
+                    float(i) / SPIN_FRAMES) # ballindex 4 for the "other" spheres
                 ypos += circ_plus_gap_size
                 if ypos >= endy: break
             xpos += circ_plus_gap_size
