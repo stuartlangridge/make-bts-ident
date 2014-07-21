@@ -122,7 +122,7 @@ def make_png(data, balls):
     if data["framecount"] > 4.5 * 60:
         lastframe = True
 
-    im = Image.new("RGB", OUTPUT_SIZE)
+    im = Image.new("RGB", OUTPUT_SIZE, color=(200, 200, 255))
     draw = ImageDraw.Draw(im)
     if lastframe:
         deltax = get_ball_position(balls[1])[0] - get_ball_position(balls[0])[0]
@@ -165,7 +165,7 @@ def make_video(params):
     # create all the remaining frames
     STAND_STILL_FRAMES = 60
     for i in range(STAND_STILL_FRAMES): # static frames
-        im = Image.new("RGB", OUTPUT_SIZE)
+        im = Image.new("RGB", OUTPUT_SIZE, color=(200, 200, 255))
         draw = ImageDraw.Draw(im)
         deltax = get_ball_position_from_position(positions[1])[0] - get_ball_position_from_position(positions[0])[0]
         ballcount = 0
@@ -190,7 +190,7 @@ def make_video(params):
     )
     for i in range(SPIN_FRAMES): # static frames
         print "Spin frame", i, "of", SPIN_FRAMES
-        im = Image.new("RGB", OUTPUT_SIZE)
+        im = Image.new("RGB", OUTPUT_SIZE, color=(200, 200, 255))
         draw = ImageDraw.Draw(im)
 
         # draw other circles
