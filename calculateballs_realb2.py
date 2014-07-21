@@ -1,5 +1,5 @@
 import sys, random, os, time, datetime
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageEnhance
 
 from Box2D import *
 
@@ -157,14 +157,24 @@ def convert_point(x, y, step, steptotal, source_rect, destination_rect):
 
 STAND_STILL_FRAMES = 60
 SPIN_FRAMES = 120
+spheres = {}
 
 def draw_a_sphere(box, im, ballindex, frame, opacity=1.0):
-    sphere = Image.open("green-sphere-%s.png" % (ballindex + 1,))
     tx, ty, bx, by = box
-    sphsize = sphere.resize((int(bx-tx), int(by-ty)), Image.ANTIALIAS)
+    destsize = (int(bx-tx), int(by-ty))
+    key = (ballindex + 1, destsize)
+    if key in spheres:
+        sphsize = spheres[key].copy()
+    else:
+        sphere = Image.open("green-sphere-%s.png" % (ballindex + 1,))
+        sphsize = sphere.resize(destsize, Image.ANTIALIAS)
+        spheres[key] = sphsize.copy()
     if opacity < 1.0:
-        transparent = Image.new(sphsize.mode, sphsize.size, (0,0,0,0))
-        sphsize = Image.blend(transparent, sphsize, opacity)
+        #transparent = Image.new(sphsize.mode, sphsize.size, (0,0,0,0))
+        #sphsize = Image.blend(transparent, sphsize, opacity)
+        alpha = sphsize.split()[3]
+        alpha = ImageEnhance.Brightness(alpha).enhance(opacity)
+        sphsize.putalpha(alpha)
 
     im.paste(sphsize, box=(int(tx), int(ty)), mask=sphsize)
 
@@ -196,7 +206,7 @@ def make_video(params):
         im.save("seq/out-%03d.png" % (int(data["framecount"]) + i), "PNG")
 
     print "  spin frames..."
-    zoom_down_to_fraction_of_total = 2.5
+    zoom_down_to_fraction_of_total = 2
     zoom_down_to_tl = (
         OUTPUT_SIZE[0] * ((zoom_down_to_fraction_of_total - 1.5) / zoom_down_to_fraction_of_total), 
         OUTPUT_SIZE[1] * ((zoom_down_to_fraction_of_total - 1.5) / zoom_down_to_fraction_of_total)
