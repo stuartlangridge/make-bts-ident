@@ -134,7 +134,8 @@ def make_png(data, balls):
             base = get_ball_position(balls[0])
             tx = base[0] + (deltax * ballcount)
             bx = base[2] + (deltax * ballcount)
-        draw.ellipse([tx, ty, bx, by], fill=128)
+        draw_a_sphere([tx, ty, bx, by], im, ballcount, data["framecount"])
+        #draw.ellipse([tx, ty, bx, by], fill=128)
         ballcount += 1
     del draw
     im.save("seq/out-%03d.png" % data["framecount"], "PNG")
@@ -154,18 +155,26 @@ def convert_point(x, y, step, steptotal, source_rect, destination_rect):
     new_y = y + (dy * float(step) / steptotal)
     return (new_x, new_y)
 
+sphere = Image.open("green-sphere.png")
+def draw_a_sphere(box, im, ballindex, frame):
+    tx, ty, bx, by = box
+    sphsize = sphere.resize((int(bx-tx), int(by-ty)), Image.ANTIALIAS)
+    im.paste(sphsize, box=(int(tx), int(ty)), mask=sphsize)
+
 def make_video(params):
     #print "PYTHONPATH=pypybox2d-2.1-r331:pypybox2d-2.1-r331/testbed python balls.py ",
     #print " ".join(["%s %.1f %s %s" % x for x in params])
     #print params
     #print "make a video with params", params
+    print "Making a video"
     os.system("rm seq/out-*.png")
     balls, endparams, data = simulate_world(make_png, params)
     positions = [(x.position.x, x.position.y) for x in balls]
     # create all the remaining frames
     STAND_STILL_FRAMES = 60
+    print "  still frames..."
     for i in range(STAND_STILL_FRAMES): # static frames
-        im = Image.new("RGB", OUTPUT_SIZE, color=(200, 200, 255))
+        im = Image.new("RGBA", OUTPUT_SIZE, color=(200, 200, 255))
         draw = ImageDraw.Draw(im)
         deltax = get_ball_position_from_position(positions[1])[0] - get_ball_position_from_position(positions[0])[0]
         ballcount = 0
@@ -174,11 +183,12 @@ def make_video(params):
             col = (0, 255, 0)
             if i > STAND_STILL_FRAMES - 10:
                 col = (0, 0, 255)
-            draw.ellipse([tx, ty, bx, by], fill=col)
+            draw_a_sphere([tx, ty, bx, by], im, ballindex, data["framecount"] + i)
             ballcount += 1
         del draw
         im.save("seq/out-%03d.png" % (int(data["framecount"]) + i), "PNG")
     SPIN_FRAMES = 120
+    print "  spin frames..."
     zoom_down_to_fraction_of_total = 3
     zoom_down_to_tl = (
         OUTPUT_SIZE[0] * ((zoom_down_to_fraction_of_total - 1.5) / zoom_down_to_fraction_of_total), 
@@ -189,7 +199,7 @@ def make_video(params):
         (OUTPUT_SIZE[1] / zoom_down_to_fraction_of_total) + zoom_down_to_tl[1]
     )
     for i in range(SPIN_FRAMES): # static frames
-        print "Spin frame", i, "of", SPIN_FRAMES
+        print "spin frame", i
         im = Image.new("RGB", OUTPUT_SIZE, color=(200, 200, 255))
         draw = ImageDraw.Draw(im)
 
@@ -215,7 +225,9 @@ def make_video(params):
         while 1:
             ypos = starty
             while 1:
-                draw.ellipse([xpos, ypos, xpos + circ_size, ypos + circ_size], fill=(200,200,200))
+                #draw.ellipse([xpos, ypos, xpos + circ_size, ypos + circ_size], fill=(200,200,200))
+                draw_a_sphere([xpos, ypos, xpos + circ_size, ypos + circ_size], im, 5, 
+                    data["framecount"] + STAND_STILL_FRAMES + i) # ballindex 5 for the "other" spheres
                 ypos += circ_plus_gap_size
                 if ypos >= endy: break
             xpos += circ_plus_gap_size
@@ -231,7 +243,8 @@ def make_video(params):
                 col = (0, 255, 255)
             ttx, tty = convert_point(tx, ty, i+1, SPIN_FRAMES, (0, 0, OUTPUT_SIZE[0], OUTPUT_SIZE[1]), zoom_down_to)
             bbx, bby = convert_point(bx, by, i+1, SPIN_FRAMES, (0, 0, OUTPUT_SIZE[0], OUTPUT_SIZE[1]), zoom_down_to)
-            draw.ellipse([ttx, tty, bbx, bby], fill=col)
+            #draw.ellipse([ttx, tty, bbx, bby], fill=col)
+            draw_a_sphere([ttx, tty, bbx, bby], im, ballindex, data["framecount"] + STAND_STILL_FRAMES + i)
             ballcount += 1
 
         del draw
