@@ -51,10 +51,10 @@ def simulate_world(step_function, optional_params=None):
         stop = step_function(data, balls)
         if stop:
             break
-    return balls, params
+    return balls, params, data
 
 def tryworld():
-    balls, params = simulate_world(count_function)
+    balls, params, data = simulate_world(count_function)
     success = check_function(balls)
     if success:
         return True, params
@@ -101,6 +101,21 @@ def get_ball_position(ball):
     by = max(ballboxtly, ballboxbry)
     return (tx, ty, bx, by)
 
+def get_ball_position_from_position(position):
+    scalex = float(OUTPUT_SIZE[0]) / WORLD_SIZE[0]
+    scaley = float(OUTPUT_SIZE[1]) / WORLD_SIZE[1]
+    ballradius = 1.9
+
+    ballboxtlx = ((position[0] - ballradius) * scalex) + (OUTPUT_SIZE[0]/2)
+    ballboxtly = OUTPUT_SIZE[1] - ((position[1] - ballradius) * scaley)
+    ballboxbrx = ((position[0] + ballradius) * scalex) + (OUTPUT_SIZE[0]/2)
+    ballboxbry = OUTPUT_SIZE[1] - ((position[1] + ballradius) * scaley)
+    tx = min(ballboxtlx, ballboxbrx)
+    ty = min(ballboxtly, ballboxbry)
+    bx = max(ballboxtlx, ballboxbrx)
+    by = max(ballboxtly, ballboxbry)
+    return (tx, ty, bx, by)
+
 def make_png(data, balls):
     data["framecount"] += 1
     lastframe = False
@@ -120,6 +135,7 @@ def make_png(data, balls):
             tx = base[0] + (deltax * ballcount)
             bx = base[2] + (deltax * ballcount)
         draw.ellipse([tx, ty, bx, by], fill=128)
+        ballcount += 1
     del draw
     im.save("seq/out-%03d.png" % data["framecount"], "PNG")
 
@@ -127,13 +143,100 @@ def make_png(data, balls):
         return True
     return False
 
+def convert_point(x, y, step, steptotal, source_rect, destination_rect):
+    x_as_fraction = (x - source_rect[0]) / source_rect[2]
+    y_as_fraction = (y - source_rect[1]) / source_rect[3]
+    new_ultimate_x = (x_as_fraction * (destination_rect[2] - destination_rect[0])) + destination_rect[0]
+    new_ultimate_y = (y_as_fraction * (destination_rect[3] - destination_rect[1])) + destination_rect[1]
+    dx = new_ultimate_x - x
+    dy = new_ultimate_y - y
+    new_x = x + (dx * float(step) / steptotal)
+    new_y = y + (dy * float(step) / steptotal)
+    return (new_x, new_y)
+
 def make_video(params):
     #print "PYTHONPATH=pypybox2d-2.1-r331:pypybox2d-2.1-r331/testbed python balls.py ",
     #print " ".join(["%s %.1f %s %s" % x for x in params])
     #print params
     #print "make a video with params", params
     os.system("rm seq/out-*.png")
-    endballs, endparams = simulate_world(make_png, params)
+    balls, endparams, data = simulate_world(make_png, params)
+    positions = [(x.position.x, x.position.y) for x in balls]
+    # create all the remaining frames
+    STAND_STILL_FRAMES = 60
+    for i in range(STAND_STILL_FRAMES): # static frames
+        im = Image.new("RGB", OUTPUT_SIZE)
+        draw = ImageDraw.Draw(im)
+        deltax = get_ball_position_from_position(positions[1])[0] - get_ball_position_from_position(positions[0])[0]
+        ballcount = 0
+        for ballindex in range(len(balls)):
+            tx, ty, bx, by = get_ball_position_from_position(positions[ballindex])
+            col = (0, 255, 0)
+            if i > STAND_STILL_FRAMES - 10:
+                col = (0, 0, 255)
+            draw.ellipse([tx, ty, bx, by], fill=col)
+            ballcount += 1
+        del draw
+        im.save("seq/out-%03d.png" % (int(data["framecount"]) + i), "PNG")
+    SPIN_FRAMES = 120
+    zoom_down_to_fraction_of_total = 3
+    zoom_down_to_tl = (
+        OUTPUT_SIZE[0] * ((zoom_down_to_fraction_of_total - 1.5) / zoom_down_to_fraction_of_total), 
+        OUTPUT_SIZE[1] * ((zoom_down_to_fraction_of_total - 1.5) / zoom_down_to_fraction_of_total)
+    )
+    zoom_down_to = ( zoom_down_to_tl[0], zoom_down_to_tl[1], 
+        (OUTPUT_SIZE[0] / zoom_down_to_fraction_of_total) + zoom_down_to_tl[0], 
+        (OUTPUT_SIZE[1] / zoom_down_to_fraction_of_total) + zoom_down_to_tl[1]
+    )
+    for i in range(SPIN_FRAMES): # static frames
+        print "Spin frame", i, "of", SPIN_FRAMES
+        im = Image.new("RGB", OUTPUT_SIZE)
+        draw = ImageDraw.Draw(im)
+
+        # draw other circles
+        sortpos = sorted(positions, cmp=lambda a,b: cmp(a[0], b[0]))
+        circ_0 = get_ball_position_from_position(sortpos[0])
+        circ_1 = get_ball_position_from_position(sortpos[1])
+        converted_0_tl = convert_point(circ_0[0], circ_0[1], i+1, SPIN_FRAMES, (0, 0, OUTPUT_SIZE[0], OUTPUT_SIZE[1]), zoom_down_to)
+        converted_1_tl = convert_point(circ_1[0], circ_1[1], i+1, SPIN_FRAMES, (0, 0, OUTPUT_SIZE[0], OUTPUT_SIZE[1]), zoom_down_to)
+        converted_0_br = convert_point(circ_0[2], circ_0[3], i+1, SPIN_FRAMES, (0, 0, OUTPUT_SIZE[0], OUTPUT_SIZE[1]), zoom_down_to)
+        converted_1_br = convert_point(circ_1[2], circ_1[3], i+1, SPIN_FRAMES, (0, 0, OUTPUT_SIZE[0], OUTPUT_SIZE[1]), zoom_down_to)
+        circ_size = converted_0_br[0] - converted_0_tl[0]
+        circ_plus_gap_size = converted_1_tl[0] - converted_0_tl[0]
+        startx = converted_0_tl[0]
+        while startx > 0: startx = startx - circ_plus_gap_size
+        starty = converted_0_tl[1]
+        while starty > 0: starty = starty - circ_plus_gap_size
+        endx = startx
+        while endx < OUTPUT_SIZE[0]: endx += circ_plus_gap_size
+        endy = starty
+        while endy < OUTPUT_SIZE[1]: endy += circ_plus_gap_size
+        xpos = startx
+        while 1:
+            ypos = starty
+            while 1:
+                draw.ellipse([xpos, ypos, xpos + circ_size, ypos + circ_size], fill=(200,200,200))
+                ypos += circ_plus_gap_size
+                if ypos >= endy: break
+            xpos += circ_plus_gap_size
+            if xpos >= endx: break
+
+
+        deltax = get_ball_position_from_position(positions[1])[0] - get_ball_position_from_position(positions[0])[0]
+        ballcount = 0
+        for ballindex in range(len(balls)):
+            tx, ty, bx, by = get_ball_position_from_position(positions[ballindex])
+            col = (255, 255, 0)
+            if i > SPIN_FRAMES - 10:
+                col = (0, 255, 255)
+            ttx, tty = convert_point(tx, ty, i+1, SPIN_FRAMES, (0, 0, OUTPUT_SIZE[0], OUTPUT_SIZE[1]), zoom_down_to)
+            bbx, bby = convert_point(bx, by, i+1, SPIN_FRAMES, (0, 0, OUTPUT_SIZE[0], OUTPUT_SIZE[1]), zoom_down_to)
+            draw.ellipse([ttx, tty, bbx, bby], fill=col)
+            ballcount += 1
+
+        del draw
+        im.save("seq/out-%03d.png" % (int(data["framecount"]) + i + STAND_STILL_FRAMES), "PNG")
+
     # encode to video
     ofile = ["vidballs",
         datetime.datetime.strftime(datetime.datetime.now(), "%Y%m%d%H%M%S")]
@@ -141,8 +244,7 @@ def make_video(params):
         for item in ballp:
             ofile.append(str(item))
     ofile = "_".join(ofile)
-    os.system('''gst-launch-1.0 webmmux name=mux ! filesink location="''' + ofile + '''.webm"    file:///`pwd`/damian_turnbull_idents_piano__damian_turnbull__preview.mp3 ! decodebin ! audioconvert ! vorbisenc ! mux.     multifilesrc location="seq/out-%03d.png" index=1 caps="image/png,framerate=\(fraction\)70/1" ! pngdec ! videoconvert ! videoscale ! videorate ! vp8enc threads=4 ! mux.''')
-    os.system("rm seq/out-*.png")
+    os.system('''gst-launch-1.0 webmmux name=mux ! filesink location="''' + ofile + '''.webm"    file:///`pwd`/damian_turnbull_idents_piano__damian_turnbull__hq.wav ! decodebin ! audioconvert ! vorbisenc ! mux.     multifilesrc location="seq/out-%03d.png" index=1 caps="image/png,framerate=\(fraction\)70/1" ! pngdec ! videoconvert ! videoscale ! videorate ! vp8enc threads=4 ! mux.''')
     print "Made video", ofile
     print "Kill the program now..."
     time.sleep(2)
